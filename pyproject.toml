@@ -1,0 +1,82 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sentinel-vision"
+version = "0.1.0"
+description = "Real-time multimodal video inference with YOLO26 pose, ByteTrack, SAM 2, and a temporal transformer"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+license = { text = "MIT" }
+authors = [{ name = "Lucas" }]
+dependencies = [
+  "fastapi>=0.116,<1",
+  "httpx>=0.28,<1",
+  "numpy>=2.0,<3",
+  "opencv-python-headless>=4.11,<5",
+  "prometheus-client>=0.22,<1",
+  "pydantic>=2.11,<3",
+  "pyyaml>=6.0,<7",
+  "rich>=14,<15",
+  "typer>=0.16,<1",
+  "uvicorn[standard]>=0.35,<1",
+]
+
+[project.optional-dependencies]
+ml = [
+  # Supervision removes its legacy ByteTrack wrapper in 0.30; migrate to the
+  # standalone trackers package after its API is qualified in this project.
+  "supervision>=0.26,<0.30",
+  "torch>=2.7,<3",
+  "ultralytics>=8.4.31,<9",
+]
+dev = [
+  "mypy>=1.16,<2",
+  "pip-audit>=2.9,<3",
+  "pre-commit>=4.2,<5",
+  "pytest>=9.0.3,<10",
+  "pytest-asyncio>=1.0,<2",
+  "pytest-cov>=6.2,<7",
+  "ruff>=0.12,<1",
+  "types-pyyaml>=6.0,<7",
+]
+
+[project.scripts]
+sentinel-vision = "sentinel_vision.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sentinel_vision"]
+
+[tool.pytest.ini_options]
+addopts = "-q --strict-markers --disable-warnings"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC", "RUF"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["sentinel_vision"]
+warn_unused_ignores = false
+
+[tool.coverage.run]
+source = ["sentinel_vision"]
+branch = true
+omit = [
+  "src/sentinel_vision/__main__.py",
+  "src/sentinel_vision/cli.py",
+]
+
+[tool.coverage.report]
+fail_under = 75
+show_missing = true
+skip_covered = false
