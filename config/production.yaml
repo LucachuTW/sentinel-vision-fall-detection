@@ -1,0 +1,76 @@
+project_name: Sentinel Vision Production
+environment: production
+
+source:
+  kind: rtsp
+  uri: rtsp://camera.local:554/stream
+  source_id: line-01-camera-01
+  width: 1920
+  height: 1080
+  fps: 30
+  codec: h264
+  hardware_decode: true
+  latency_ms: 80
+
+pose:
+  backend: ultralytics
+  model: yolo26s-pose.pt
+  engine_path: models/yolo26s-pose-int8.engine
+  device: cuda:0
+  precision: int8
+  confidence: 0.35
+  image_size: 640
+  max_detections: 30
+
+tracker:
+  backend: bytetrack
+  track_activation_threshold: 0.25
+  lost_track_buffer: 30
+  minimum_matching_threshold: 0.72
+  frame_rate: 30
+
+segmentation:
+  backend: sam2
+  model: models/sam2.1_t.pt
+  device: cuda:0
+  image_size: 1024
+  # Box-prompted: robust to growing tracker IDs. Enable dynamic memory only with a
+  # bounded track->object-slot mapping (see segmentation.py).
+  dynamic_memory: false
+  policy:
+    every_n_frames: 15
+    uncertain_every_n_frames: 5
+    max_objects_per_frame: 4
+    low_pose_confidence: 0.45
+    segment_new_tracks: true
+
+temporal:
+  backend: transformer
+  checkpoint: models/temporal-transformer.pt
+  sequence_length: 32
+  event_threshold: 0.78
+  event_cooldown_seconds: 10
+  device: cuda:0
+
+ollama:
+  enabled: true
+  endpoint: http://ollama:11434
+  model: qwen3:1.7b
+  timeout_seconds: 8
+  min_severity: warning
+
+runtime:
+  queue_size: 2
+  target_fps: 30
+  jpeg_quality: 82
+  log_level: INFO
+  event_history_size: 2000
+  warmup_iterations: 10
+  # Persisted across restarts. Mount a writable volume at /app/state in deployment.
+  event_db_path: /app/state/events.db
+
+api:
+  host: 0.0.0.0
+  port: 8080
+  # Fail-closed: the service refuses to start unless SV_API_TOKEN is set.
+  require_auth: true

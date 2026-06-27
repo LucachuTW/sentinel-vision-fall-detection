@@ -1,0 +1,55 @@
+project_name: Sentinel Vision GPU Benchmark
+environment: development
+
+source:
+  kind: image
+  uri: artifacts/bus.jpg
+  source_id: benchmark-bus
+  width: 810
+  height: 1080
+  fps: 30
+  hardware_decode: false
+
+pose:
+  backend: ultralytics
+  model: models/yolo26n-pose.pt
+  device: cuda:0
+  precision: fp16
+  confidence: 0.35
+  image_size: 640
+
+tracker:
+  backend: bytetrack
+  frame_rate: 30
+
+segmentation:
+  backend: sam2
+  model: models/sam2.1_t.pt
+  device: cuda:0
+  image_size: 640
+  dynamic_memory: false
+  policy:
+    every_n_frames: 15
+    uncertain_every_n_frames: 5
+    max_objects_per_frame: 2
+    low_pose_confidence: 0.0
+    segment_new_tracks: true
+
+temporal:
+  backend: heuristic
+  sequence_length: 32
+  event_threshold: 0.78
+
+ollama:
+  enabled: false
+
+runtime:
+  queue_size: 2
+  target_fps: 30
+  jpeg_quality: 82
+  log_level: INFO
+  warmup_iterations: 5
+
+api:
+  host: 127.0.0.1
+  port: 8080
