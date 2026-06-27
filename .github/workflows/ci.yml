@@ -1,0 +1,51 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.16"
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync --frozen --extra dev
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy src/sentinel_vision
+      - run: make security
+      - run: uv run pytest --cov=sentinel_vision --cov-report=term-missing --cov-report=xml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.xml
+
+  test-ml:
+    # Exercises the real torch path (transformer training + masked inference). CPU wheels keep it
+    # light; real YOLO26/SAM2 weight smoke stays manual via `make smoke-models`.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      UV_TORCH_BACKEND: cpu
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.16"
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync --extra dev --extra ml
+      - run: uv run pytest tests/test_temporal_transformer.py tests/test_ml_smoke.py -q
