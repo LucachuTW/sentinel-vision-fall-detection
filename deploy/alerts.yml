@@ -1,0 +1,32 @@
+groups:
+  - name: sentinel-vision
+    rules:
+      - alert: SentinelPipelineDown
+        expr: sentinel_pipeline_ready != 1
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: Sentinel Vision pipeline is not ready
+      - alert: SentinelHighLatency
+        expr: histogram_quantile(0.95, sum by (le) (rate(sentinel_end_to_end_latency_seconds_bucket[5m]))) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Pipeline p95 latency exceeds 200 ms
+      - alert: SentinelFrameDrops
+        expr: sum(rate(sentinel_frames_dropped_total[5m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Live frames are being dropped
+      - alert: SentinelGpuMemoryPressure
+        expr: sentinel_gpu_memory_used_bytes / sentinel_gpu_memory_total_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: GPU memory utilization exceeds 90 percent
+

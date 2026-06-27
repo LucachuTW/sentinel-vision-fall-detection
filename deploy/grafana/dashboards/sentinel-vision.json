@@ -1,0 +1,70 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "type": "stat", "title": "Processed FPS", "id": 1,
+      "gridPos": {"h": 5, "w": 6, "x": 0, "y": 0},
+      "targets": [{"expr": "sum(rate(sentinel_frames_processed_total[1m]))", "legendFormat": "FPS"}],
+      "fieldConfig": {"defaults": {"unit": "fps", "thresholds": {"steps": [{"color": "red"}, {"color": "green", "value": 20}]}}}
+    },
+    {
+      "type": "stat", "title": "E2E p95", "id": 2,
+      "gridPos": {"h": 5, "w": 6, "x": 6, "y": 0},
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(sentinel_end_to_end_latency_seconds_bucket[5m])))", "legendFormat": "p95"}],
+      "fieldConfig": {"defaults": {"unit": "s", "thresholds": {"steps": [{"color": "green"}, {"color": "red", "value": 0.2}]}}}
+    },
+    {
+      "type": "stat", "title": "GPU Utilization", "id": 3,
+      "gridPos": {"h": 5, "w": 6, "x": 12, "y": 0},
+      "targets": [{"expr": "sentinel_gpu_utilization_ratio", "legendFormat": "GPU"}],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}}
+    },
+    {
+      "type": "stat", "title": "VRAM Used", "id": 4,
+      "gridPos": {"h": 5, "w": 6, "x": 18, "y": 0},
+      "targets": [{"expr": "sentinel_gpu_memory_used_bytes", "legendFormat": "VRAM"}],
+      "fieldConfig": {"defaults": {"unit": "bytes"}}
+    },
+    {
+      "type": "timeseries", "title": "Stage p95 latency", "id": 5,
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 5},
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (stage, le) (rate(sentinel_stage_latency_seconds_bucket[5m])))", "legendFormat": "{{stage}}"}],
+      "fieldConfig": {"defaults": {"unit": "s"}}
+    },
+    {
+      "type": "timeseries", "title": "Queue depth and drops", "id": 6,
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 5},
+      "targets": [
+        {"expr": "sentinel_queue_depth", "legendFormat": "depth {{stage}}"},
+        {"expr": "rate(sentinel_frames_dropped_total[1m])", "legendFormat": "drops {{stage}}"}
+      ]
+    },
+    {
+      "type": "timeseries", "title": "GPU thermals and power", "id": 7,
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 13},
+      "targets": [
+        {"expr": "sentinel_gpu_temperature_celsius", "legendFormat": "temperature C"},
+        {"expr": "sentinel_gpu_power_watts", "legendFormat": "power W"}
+      ]
+    },
+    {
+      "type": "timeseries", "title": "Tracks and events", "id": 8,
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 13},
+      "targets": [
+        {"expr": "sentinel_active_tracks", "legendFormat": "tracks"},
+        {"expr": "sum(rate(sentinel_events_total[5m]))", "legendFormat": "events/s"}
+      ]
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 41,
+  "tags": ["computer-vision", "edge-ai", "sentinel"],
+  "templating": {"list": []},
+  "time": {"from": "now-15m", "to": "now"},
+  "timezone": "browser",
+  "title": "Sentinel Vision Operations",
+  "uid": "sentinel-vision-ops",
+  "version": 1
+}

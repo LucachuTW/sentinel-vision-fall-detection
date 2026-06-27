@@ -1,0 +1,29 @@
+FROM ghcr.io/astral-sh/uv:0.11.16 AS uv
+FROM nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      python3.12 python3.12-venv ffmpeg ca-certificates \
+      gstreamer1.0-tools gstreamer1.0-plugins-base \
+      gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
+      libglib2.0-0 libgl1 \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=uv /uv /uvx /bin/
+WORKDIR /app
+COPY pyproject.toml uv.lock README.md ./
+RUN uv sync --python python3.12 --frozen --no-dev --extra ml --no-install-project
+COPY src ./src
+COPY config ./config
+COPY models/README.md ./models/README.md
+RUN uv sync --python python3.12 --frozen --no-dev --extra ml
+
+RUN useradd --create-home --uid 10001 sentinel && chown -R sentinel:sentinel /app
+USER sentinel
+EXPOSE 8080
+CMD [".venv/bin/sentinel-vision", "run", "--config", "config/local-gpu.yaml"]
+
