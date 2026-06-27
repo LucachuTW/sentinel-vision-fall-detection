@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>Sentinel Vision · Operations Console</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <div class="mark" aria-hidden="true"><span></span></div>
+        <div><strong>Sentinel Vision</strong><small>EDGE ANALYTICS / LIVE</small></div>
+      </div>
+      <div class="status-group">
+        <span id="environment" class="tag">DEMO</span>
+        <span id="status" class="status"><i></i> Connecting</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="pipeline" aria-label="Inference pipeline">
+        <div><span>01</span><b>GStreamer</b><small>ingest</small></div><i>→</i>
+        <div><span>02</span><b>YOLO26</b><small>pose</small></div><i>→</i>
+        <div><span>03</span><b>ByteTrack</b><small>identity</small></div><i>→</i>
+        <div><span>04</span><b>SAM 2.1</b><small>on demand</small></div><i>→</i>
+        <div><span>05</span><b>Transformer</b><small>actions</small></div>
+      </section>
+
+      <section class="workspace">
+        <article class="panel viewer-panel">
+          <div class="panel-title">
+            <div><span class="eyebrow">LIVE FEED</span><h1 id="sourceName">Waiting for source</h1></div>
+            <div class="live"><i></i> LIVE</div>
+          </div>
+          <div class="viewer">
+            <img id="stream" src="/v1/stream.mjpeg" alt="Annotated live inference stream" />
+            <div class="scanline"></div>
+            <span id="sequence" class="frame-number">FRAME 000000</span>
+          </div>
+          <div class="latency-strip" id="latencyStrip"><span>Waiting for telemetry…</span></div>
+        </article>
+
+        <aside class="side-column">
+          <article class="panel metrics-panel">
+            <div class="panel-heading"><span class="eyebrow">SYSTEM PULSE</span><span id="updated">—</span></div>
+            <div class="metrics-grid">
+              <div><strong id="fps">0.0</strong><small>PIPELINE FPS</small></div>
+              <div><strong id="e2e">0</strong><small>E2E LATENCY · MS</small></div>
+              <div><strong id="trackCount">0</strong><small>ACTIVE TRACKS</small></div>
+              <div><strong id="eventCount">0</strong><small>EVENTS</small></div>
+              <div><strong id="gpuUtil">—</strong><small>GPU UTILIZATION</small></div>
+              <div><strong id="gpuVram">—</strong><small>VRAM USED</small></div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-heading"><span class="eyebrow">ACTIVE SUBJECTS</span><span id="modelBadge" class="micro-tag">LOCAL</span></div>
+            <div id="tracks" class="tracks empty">No active tracks</div>
+          </article>
+
+          <article class="panel component-panel">
+            <div class="panel-heading"><span class="eyebrow">RUNTIME BACKENDS</span></div>
+            <dl id="components"><div><dt>Pipeline</dt><dd>initializing</dd></div></dl>
+          </article>
+        </aside>
+      </section>
+
+      <section class="panel telemetry-panel">
+        <div class="panel-heading">
+          <span class="eyebrow">REAL-TIME TELEMETRY</span>
+          <span class="chart-legend"><i class="latency-dot"></i> E2E LATENCY <i class="fps-dot"></i> FPS</span>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="telemetryChart" aria-label="Pipeline latency and throughput history"></canvas>
+          <div id="chartEmpty" class="chart-empty">Collecting telemetry…</div>
+        </div>
+      </section>
+
+      <section class="panel events-panel">
+        <div class="panel-heading"><span class="eyebrow">EVENT TIMELINE</span><span>LOCAL DECISIONS · NO CLOUD EGRESS</span></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>TIME</th><th>TRACK</th><th>EVENT</th><th>CONFIDENCE</th><th>SEVERITY</th><th>NARRATIVE</th></tr></thead>
+            <tbody id="events"><tr><td colspan="6" class="empty-row">No temporal transitions detected</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="degradations" class="degradations" hidden></section>
+    </main>
+
+    <footer><span>Sentinel Vision v0.1.0</span><span>Prometheus <a href="/metrics">/metrics</a> · OpenAPI <a href="/docs">/docs</a></span></footer>
+    <script src="/assets/app.js" defer></script>
+  </body>
+</html>
