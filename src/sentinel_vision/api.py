@@ -3,21 +3,124 @@ from __future__ import annotations
 import asyncio
 import hmac
 import os
+import re
 from collections.abc import AsyncIterator, Callable, Coroutine
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import (
+    Depends,
+    FastAPI,
+    Header,
+    HTTPException,
+    Query,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
-from sentinel_vision.config import AppConfig
+from sentinel_vision.config import AppConfig, SourceConfig, redact_uri
 from sentinel_vision.observability import gpu_snapshot
 from sentinel_vision.pipeline import VideoInferencePipeline
 
 WEB_ROOT = Path(__file__).parent / "web"
+UPLOADS = Path("uploads")
+_VIDEO_EXTENSIONS = {"mp4", "avi", "mov", "mkv", "webm", "m4v"}
+
+
+class SourceSwitch(BaseModel):
+    # "demo" restores the server's original startup source (handled in the endpoint).
+    kind: Literal["demo", "synthetic", "camera", "rtsp"]
+    uri: str | None = None
+    width: int = 1280
+    height: int = 720
+    fps: float = 30.0
+
+
+def build_source(switch: SourceSwitch) -> SourceConfig:
+    """Validate a source-switch request into a SourceConfig, rejecting unsafe inputs.
+
+    `file` is intentionally not reachable here — uploaded videos go through the upload
+    endpoint, which controls the path, so the API never opens an arbitrary local path.
+    """
+    if switch.kind == "camera":
+        device = (switch.uri or "0").strip()
+        if not device.isdigit():
+            raise HTTPException(status_code=400, detail="camera uri must be a device index")
+        return SourceConfig(
+            kind="camera",
+            uri=device,
+            source_id=f"webcam-{device}",
+            hardware_decode=False,
+            width=switch.width,
+            height=switch.height,
+            fps=switch.fps,
+        )
+    if switch.kind == "rtsp":
+        if not switch.uri or not switch.uri.startswith("rtsp://"):
+            raise HTTPException(status_code=400, detail="rtsp uri must start with rtsp://")
+        return SourceConfig(
+            kind="rtsp",
+            uri=switch.uri,
+            source_id="rtsp-camera",
+            width=switch.width,
+            height=switch.height,
+            fps=switch.fps,
+        )
+    if switch.kind == "synthetic":
+        return SourceConfig(
+            kind="synthetic",
+            uri="synthetic://live",
+            source_id="synthetic",
+            hardware_decode=False,
+            width=switch.width,
+            height=switch.height,
+            fps=switch.fps,
+        )
+    raise HTTPException(status_code=400, detail=f"unsupported source kind: {switch.kind}")
+
+
+def _safe_filename(name: str) -> str:
+    base = re.sub(r"[^A-Za-z0-9._-]", "_", os.path.basename(name))
+    extension = base.rsplit(".", 1)[-1].lower() if "." in base else ""
+    if not base or extension not in _VIDEO_EXTENSIONS:
+        raise HTTPException(status_code=415, detail=f"unsupported video file: {name}")
+    return base
+
+
+def _source_view(source: SourceConfig) -> dict[str, object]:
+    return {"kind": source.kind, "uri": redact_uri(source.uri), "source_id": source.source_id}
+
+
+def _persist_upload(name: str, body: bytes) -> SourceConfig:
+    """Blocking disk write + decode probe; run off the event loop via asyncio.to_thread."""
+    import cv2
+
+    UPLOADS.mkdir(parents=True, exist_ok=True)
+    destination = UPLOADS / name
+    destination.write_bytes(body)
+    capture = cv2.VideoCapture(str(destination))
+    fps = capture.get(cv2.CAP_PROP_FPS)
+    width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    capture.release()
+    if width <= 0 or height <= 0:
+        destination.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail="could not decode uploaded video")
+    return SourceConfig(
+        kind="file",
+        uri=str(destination),
+        source_id=f"upload-{name}",
+        width=min(7680, max(320, width)),
+        height=min(4320, max(240, height)),
+        fps=min(240.0, max(1.0, fps or 30.0)),
+        loop=True,
+    )
 
 
 def _token_ok(required_token: str | None, provided: str | None) -> bool:
@@ -62,12 +165,12 @@ def create_app(
     guard = Depends(_make_token_guard(active_token))
 
     @asynccontextmanager
-    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    async def lifespan(app_: FastAPI) -> AsyncIterator[None]:
         if manage_pipeline:
-            await runtime.start()
+            await app_.state.pipeline.start()
         yield
         if manage_pipeline:
-            await runtime.stop()
+            await app_.state.pipeline.stop()
 
     app = FastAPI(
         title=config.project_name,
@@ -76,12 +179,40 @@ def create_app(
         lifespan=lifespan,
     )
     app.state.pipeline = runtime
+    app.state.config = config
+    switch_lock = asyncio.Lock()
+
+    async def switch_source(new_source: SourceConfig) -> None:
+        """Hot-swap the input source, reusing the loaded models, metrics, and read model.
+
+        Reusing StateStore/PipelineMetrics keeps the dashboard connected across the switch;
+        reusing the model adapters avoids reloading YOLO26/SAM2. The tracker and classifier
+        carry a little state from the previous scene but self-heal as stale ids age out.
+        """
+        async with switch_lock:
+            old = app.state.pipeline
+            new_config = config.model_copy(update={"source": new_source})
+            new = VideoInferencePipeline(
+                new_config,
+                pose=old.pose,
+                tracker=old.tracker,
+                segmenter=old.segmenter,
+                classifier=old.classifier,
+                metrics=old.metrics,
+                state=old.state,
+            )
+            await old.stop()
+            await new.start()
+            app.state.pipeline = new
+            app.state.config = new_config
 
     @app.middleware("http")
     async def security_headers(request: Any, call_next: Any) -> Response:
         response: Response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Server"] = "sentinel-vision"
+        # Live dashboard + assets must never be served stale from browser cache.
+        response.headers.setdefault("Cache-Control", "no-cache")
         return response
 
     if config.api.cors_origins:
@@ -123,11 +254,31 @@ def create_app(
 
     @app.get("/v1/config", tags=["system"], dependencies=[guard])
     async def safe_config() -> dict[str, object]:
-        return config.safe_dict()
+        current: AppConfig = app.state.config
+        return current.safe_dict()
 
     @app.get("/v1/system", tags=["system"], dependencies=[guard])
     async def system_metrics() -> dict[str, object]:
         return {"gpu": gpu_snapshot()}
+
+    @app.post("/v1/source", tags=["system"], dependencies=[guard])
+    async def set_source(switch: SourceSwitch) -> dict[str, object]:
+        # "demo" restores the original startup source (a known, server-controlled path).
+        source = config.source if switch.kind == "demo" else build_source(switch)
+        await switch_source(source)
+        return {"status": "switching", "source": _source_view(source)}
+
+    @app.post("/v1/source/upload", tags=["system"], dependencies=[guard])
+    async def upload_source(
+        request: Request, filename: str = Query(min_length=1)
+    ) -> dict[str, object]:
+        name = _safe_filename(filename)
+        body = await request.body()
+        if len(body) > 300 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="uploaded video exceeds 300 MB")
+        source = await asyncio.to_thread(_persist_upload, name, body)
+        await switch_source(source)
+        return {"status": "switching", "source": _source_view(source), "fps": source.fps}
 
     @app.get("/metrics", include_in_schema=False, dependencies=[guard])
     async def metrics() -> Response:

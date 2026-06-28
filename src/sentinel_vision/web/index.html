@@ -43,6 +43,23 @@
         </article>
 
         <aside class="side-column">
+          <article class="panel source-panel">
+            <div class="panel-heading"><span class="eyebrow">SOURCE</span><span id="sourceStatus" class="micro-tag">live</span></div>
+            <div class="source-controls">
+              <select id="srcKind" aria-label="Input source type">
+                <option value="demo">Fall demo clip</option>
+                <option value="camera">Webcam (server)</option>
+                <option value="file">Upload video</option>
+                <option value="rtsp">RTSP camera</option>
+                <option value="synthetic">Synthetic</option>
+              </select>
+              <input id="srcDevice" type="number" min="0" max="9" value="0" aria-label="Webcam device index" />
+              <input id="srcRtsp" type="text" placeholder="rtsp://user:pass@host:554/stream" aria-label="RTSP URL" hidden />
+              <input id="srcFile" type="file" accept="video/*" aria-label="Video file" hidden />
+              <button id="srcApply" type="button">Apply</button>
+            </div>
+          </article>
+
           <article class="panel metrics-panel">
             <div class="panel-heading"><span class="eyebrow">SYSTEM PULSE</span><span id="updated">—</span></div>
             <div class="metrics-grid">

@@ -2,7 +2,7 @@ import asyncio
 
 import httpx
 import pytest
-from fastapi import WebSocketDisconnect
+from fastapi import HTTPException, WebSocketDisconnect
 from fastapi.testclient import TestClient
 
 from sentinel_vision.api import create_app
@@ -56,6 +56,37 @@ async def test_auth_guard_rejects_anonymous_but_allows_token_and_health(
     assert wrong.status_code == 401
     assert authorized.status_code == 200
     assert live.status_code == 200  # health probes stay open
+
+
+def test_build_source_validates_and_rejects_unsafe_inputs() -> None:
+    from sentinel_vision.api import SourceSwitch, build_source
+
+    assert build_source(SourceSwitch(kind="camera", uri="0")).kind == "camera"
+    assert build_source(SourceSwitch(kind="rtsp", uri="rtsp://cam/live")).kind == "rtsp"
+    assert build_source(SourceSwitch(kind="synthetic")).uri == "synthetic://live"
+    with pytest.raises(HTTPException):  # camera must be a numeric device index, not a path
+        build_source(SourceSwitch(kind="camera", uri="/etc/passwd"))
+    with pytest.raises(HTTPException):  # only rtsp:// urls are accepted
+        build_source(SourceSwitch(kind="rtsp", uri="http://evil/x"))
+
+
+async def test_source_switch_changes_active_source(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("SV_API_TOKEN", raising=False)
+    config = AppConfig()
+    pipeline = VideoInferencePipeline(config)
+    await pipeline.start()
+    try:
+        app = create_app(config, pipeline, manage_pipeline=False)
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post("/v1/source", json={"kind": "synthetic"})
+            current = await client.get("/v1/config")
+        assert response.status_code == 200
+        assert response.json()["source"]["kind"] == "synthetic"
+        assert current.json()["source"]["source_id"] == "synthetic"
+    finally:
+        await app.state.pipeline.stop()
 
 
 def test_auth_fails_closed_when_token_missing(monkeypatch: pytest.MonkeyPatch) -> None:

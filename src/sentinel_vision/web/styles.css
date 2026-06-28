@@ -140,3 +140,15 @@ a { color: var(--cyan); text-decoration: none; }
   .viewer { min-height: 210px; }
   footer { gap: 12px; flex-direction: column; }
 }
+
+.source-controls { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 18px; }
+.source-controls select, .source-controls input[type="text"], .source-controls input[type="number"] {
+  flex: 1 1 120px; min-width: 0; color: var(--text); background: var(--surface-2);
+  border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; font: 11px var(--mono);
+}
+.source-controls input[type="file"] { flex: 1 1 100%; color: var(--muted); font: 10px var(--mono); }
+.source-controls button {
+  flex: 0 0 auto; color: var(--bg); background: var(--cyan); border: 0; border-radius: 4px;
+  padding: 8px 16px; font: 600 11px var(--mono); letter-spacing: .06em; cursor: pointer;
+}
+.source-controls button:hover { background: #7fe2f1; }

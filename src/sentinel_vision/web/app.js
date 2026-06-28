@@ -139,6 +139,48 @@ async function refreshEvents() {
   } catch (_) { /* transient dashboard polling failure */ }
 }
 
+function toggleSourceInputs() {
+  const kind = $("srcKind").value;
+  $("srcDevice").hidden = kind !== "camera";
+  $("srcRtsp").hidden = kind !== "rtsp";
+  $("srcFile").hidden = kind !== "file";
+}
+
+function reloadStream() {
+  const base = withToken("/v1/stream.mjpeg");
+  $("stream").src = `${base}${base.includes("?") ? "&" : "?"}t=${Date.now()}`;
+}
+
+async function applySource() {
+  const kind = $("srcKind").value;
+  const status = $("sourceStatus");
+  status.textContent = "switching…";
+  try {
+    let response;
+    if (kind === "file") {
+      const file = $("srcFile").files[0];
+      if (!file) { status.textContent = "pick a file"; return; }
+      response = await fetch(withToken(`/v1/source/upload?filename=${encodeURIComponent(file.name)}`),
+        {method: "POST", body: file});
+    } else {
+      const payload = {kind};
+      if (kind === "camera") payload.uri = $("srcDevice").value;
+      if (kind === "rtsp") payload.uri = $("srcRtsp").value;
+      response = await fetch(withToken("/v1/source"),
+        {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload)});
+    }
+    if (!response.ok) {
+      const detail = await response.json().catch(() => ({}));
+      status.textContent = `error: ${detail.detail || response.status}`;
+      return;
+    }
+    status.textContent = "switched";
+    setTimeout(reloadStream, 600);
+  } catch (_) {
+    status.textContent = "request failed";
+  }
+}
+
 function connectSocket() {
   const protocol = location.protocol === "https:" ? "wss" : "ws";
   const socket = new WebSocket(`${protocol}://${location.host}${withToken("/v1/ws")}`);
@@ -148,6 +190,9 @@ function connectSocket() {
 }
 
 if (API_TOKEN) $("stream").src = withToken("/v1/stream.mjpeg");
+$("srcKind").addEventListener("change", toggleSourceInputs);
+$("srcApply").addEventListener("click", applySource);
+toggleSourceInputs();
 connectSocket();
 refreshHealth();
 refreshEvents();

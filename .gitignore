@@ -13,6 +13,7 @@ coverage.xml
 htmlcov/
 .env
 artifacts/
+uploads/
 models/*.engine
 models/*.onnx
 models/*.pt
