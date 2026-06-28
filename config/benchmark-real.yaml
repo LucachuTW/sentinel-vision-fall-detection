@@ -1,0 +1,60 @@
+project_name: Sentinel Vision — Real Video Benchmark
+# Reproducible benchmark of the full real stack on the real demo video (no camera needed).
+environment: development
+
+source:
+  kind: file
+  uri: artifacts/demo-fall.mp4
+  source_id: benchmark-fall
+  width: 640
+  height: 480
+  fps: 30
+  hardware_decode: false
+  loop: true
+
+pose:
+  backend: ultralytics
+  model: models/yolo26n-pose.pt
+  device: cuda:0
+  precision: fp16
+  confidence: 0.35
+  image_size: 640
+
+tracker:
+  backend: bytetrack
+  frame_rate: 30
+
+segmentation:
+  backend: sam2
+  model: models/sam2.1_t.pt
+  device: cuda:0
+  image_size: 640
+  dynamic_memory: false
+  policy:
+    every_n_frames: 15
+    uncertain_every_n_frames: 5
+    max_objects_per_frame: 2
+    low_pose_confidence: 0.0
+    segment_new_tracks: true
+
+temporal:
+  backend: transformer
+  checkpoint: models/temporal-transformer.pt
+  labels: [upright, falling, fallen]
+  sequence_length: 32
+  event_threshold: 0.6
+  device: cuda:0
+
+ollama:
+  enabled: false
+
+runtime:
+  queue_size: 2
+  target_fps: 30
+  jpeg_quality: 82
+  log_level: INFO
+  warmup_iterations: 5
+
+api:
+  host: 127.0.0.1
+  port: 8080

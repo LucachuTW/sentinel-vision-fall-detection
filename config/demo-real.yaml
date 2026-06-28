@@ -1,0 +1,63 @@
+project_name: Sentinel Vision — Worker Fall Detection (real data)
+# Full real stack on a real video: YOLO26-pose + ByteTrack + SAM 2.1 + a temporal transformer
+# trained on the UR Fall Detection Dataset. A real fall is flagged as a critical incident.
+environment: development
+
+source:
+  kind: file
+  uri: artifacts/demo-fall.mp4
+  source_id: floor-cam-01
+  width: 640
+  height: 480
+  fps: 30
+  hardware_decode: false
+  loop: true
+
+pose:
+  backend: ultralytics
+  model: models/yolo26n-pose.pt
+  device: cuda:0
+  precision: fp16
+  confidence: 0.35
+  image_size: 640
+
+tracker:
+  backend: bytetrack
+  frame_rate: 30
+
+segmentation:
+  backend: sam2
+  model: models/sam2.1_t.pt
+  device: cuda:0
+  image_size: 640
+  dynamic_memory: false
+  policy:
+    every_n_frames: 12
+    uncertain_every_n_frames: 4
+    max_objects_per_frame: 2
+    segment_new_tracks: true
+
+temporal:
+  backend: transformer
+  checkpoint: models/temporal-transformer.pt
+  labels: [upright, falling, fallen]
+  sequence_length: 32
+  event_threshold: 0.6
+  event_cooldown_seconds: 3
+  device: cuda:0
+
+ollama:
+  enabled: false
+  endpoint: http://127.0.0.1:11434
+  model: qwen3:1.7b
+
+runtime:
+  queue_size: 2
+  target_fps: 30
+  jpeg_quality: 82
+  log_level: INFO
+  event_history_size: 500
+
+api:
+  host: 0.0.0.0
+  port: 8080
