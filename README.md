@@ -19,9 +19,10 @@ incident**.
 
 ![Live fall detection on real video, flagged as a critical incident](docs/demo-real-fall.gif)
 
-_Live pipeline output (real URFD clip). Single frame — a fallen worker flagged `fallen 98%`:_
+_The operations dashboard. Switch the live input from the **Source** panel — fall-demo clip, server
+webcam, an uploaded video, or an RTSP camera — with a hot-swap that reuses the already-loaded models:_
 
-![Real fall flagged as a critical incident](docs/demo-real-fall.jpg)
+![Sentinel Vision dashboard with the live input source selector](docs/dashboard-source-selector.gif)
 
 - **Perception:** YOLO26n-pose (FP16) → ByteTrack → SAM 2.1 box-prompted masks, all on the RTX 2070.
 - **Action model:** skeleton transformer trained on URFD with a **by-sequence split** (held-out falls).
