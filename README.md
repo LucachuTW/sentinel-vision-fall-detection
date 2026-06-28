@@ -1,5 +1,11 @@
 # Sentinel Vision
 
+[![CI](https://github.com/LucachuTW/sentinel-vision-fall-detection/actions/workflows/ci.yml/badge.svg)](https://github.com/LucachuTW/sentinel-vision-fall-detection/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](pyproject.toml)
+[![Lint: Ruff](https://img.shields.io/badge/lint-ruff-261230.svg)](https://github.com/astral-sh/ruff)
+[![Types: mypy --strict](https://img.shields.io/badge/types-mypy%20strict-blue.svg)](https://mypy-lang.org/)
+
 Local-first, real-time video analytics for industrial monitoring and behavioural research. The pipeline combines **YOLO26-Pose**, persistent identity tracking, on-demand **SAM 2.1** masks, and a compact skeleton transformer behind an observable FastAPI service.
 
 This repository is an executable engineering system, not a notebook: bounded queues control live-stream latency, models are replaceable adapters, production configuration is fail-closed, secrets are redacted, and the demo works without a camera or GPU.
@@ -194,6 +200,20 @@ orchestrators. The default bind address is `127.0.0.1` — set `api.host: 0.0.0.
 
 Events are in-memory by default; set `runtime.event_db_path` (on in `production.yaml`) to persist them
 to SQLite and reload the recent history on restart.
+
+## Repository layout
+
+```
+src/sentinel_vision/   pipeline, model adapters, FastAPI service, and web dashboard
+config/                environment profiles (demo, gpu, production, demo-real, demo-transformer)
+scripts/               model download, URFD dataset prep, training, and benchmarking
+tests/                 pytest suite (deterministic core + torch-gated ML smoke)
+docs/                  architecture, model card, benchmarks, and demo media
+deploy/  docker/       Prometheus/Grafana provisioning, Dockerfiles, and Compose
+```
+
+Each stage (`VideoSource`, `PoseEstimator`, `Tracker`, `Segmenter`, `ActionClassifier`) is a narrow
+adapter with a real backend and a deterministic fallback, so the system runs in CI without a GPU.
 
 ## Verification
 
