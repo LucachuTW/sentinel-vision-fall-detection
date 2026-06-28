@@ -1,0 +1,63 @@
+project_name: Sentinel Vision Transformer Demo
+# Development (not production) so the synthetic pose/tracker/segmentation fallbacks are
+# allowed while the real trained temporal transformer drives the action classifier.
+environment: development
+
+source:
+  kind: synthetic
+  uri: synthetic://industrial-floor
+  source_id: demo-floor-01
+  width: 960
+  height: 540
+  fps: 24
+  hardware_decode: false
+
+pose:
+  backend: synthetic
+  model: models/yolo26n-pose.pt
+  device: cpu
+  precision: fp32
+  confidence: 0.25
+  image_size: 640
+
+tracker:
+  backend: iou
+  minimum_iou: 0.18
+  lost_track_buffer: 20
+  frame_rate: 24
+
+segmentation:
+  backend: contour
+  model: models/sam2.1_t.pt
+  device: cpu
+  policy:
+    every_n_frames: 8
+    uncertain_every_n_frames: 4
+    max_objects_per_frame: 4
+    low_pose_confidence: 0.45
+    segment_new_tracks: true
+
+temporal:
+  backend: transformer
+  checkpoint: models/temporal-transformer.pt
+  # Must match make_synthetic_windows.py --sequence-length and the trained checkpoint.
+  sequence_length: 24
+  event_threshold: 0.72
+  event_cooldown_seconds: 4
+  device: auto
+
+ollama:
+  enabled: false
+  endpoint: http://127.0.0.1:11434
+  model: qwen3:1.7b
+
+runtime:
+  queue_size: 2
+  target_fps: 24
+  jpeg_quality: 82
+  log_level: INFO
+  event_history_size: 500
+
+api:
+  host: 0.0.0.0
+  port: 8080
