@@ -1,7 +1,7 @@
 services:
   demo:
     build:
-      context: .
+      context: ..
       dockerfile: docker/Dockerfile
     ports:
       - "8080:8080"
@@ -10,13 +10,13 @@ services:
   vision-gpu:
     profiles: ["gpu"]
     build:
-      context: .
+      context: ..
       dockerfile: docker/Dockerfile.cuda
     environment:
       SV_SOURCE_URI: ${SV_SOURCE_URI:?Set SV_SOURCE_URI for the GPU profile}
       SV_OLLAMA_ENDPOINT: http://ollama:11434
     volumes:
-      - ./models:/app/models:ro
+      - ../models:/app/models:ro
     ports:
       - "8080:8080"
     gpus: all
@@ -37,8 +37,8 @@ services:
     image: prom/prometheus:v3.5.0
     command: ["--config.file=/etc/prometheus/prometheus.yml"]
     volumes:
-      - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./deploy/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./alerts.yml:/etc/prometheus/alerts.yml:ro
     ports:
       - "9090:9090"
     depends_on:
@@ -53,8 +53,8 @@ services:
       GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
       GF_USERS_DEFAULT_THEME: dark
     volumes:
-      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./deploy/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
       - "3000:3000"
     depends_on:

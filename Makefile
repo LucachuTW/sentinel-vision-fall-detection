@@ -66,4 +66,4 @@ smoke-models:
 	uv run python scripts/smoke_local_models.py
 
 observability:
-	docker compose --profile observability up --build
+	docker compose -f deploy/compose.yaml --profile observability up --build

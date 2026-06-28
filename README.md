@@ -166,7 +166,7 @@ The service exports Prometheus counters, gauges and histograms for throughput, l
 The graph is backed by a bounded 600-sample server-side time series (`/v1/telemetry`), so a browser refresh does not reset the visible operating window. It uses separate axes for FPS and latency to avoid the scale collision that previously made the chart unreadable.
 
 ```bash
-docker compose --profile observability up --build
+docker compose -f deploy/compose.yaml --profile observability up --build
 ```
 
 - Application dashboard: `http://localhost:8080`

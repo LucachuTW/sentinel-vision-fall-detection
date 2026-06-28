@@ -12,7 +12,7 @@ curl -fsS http://127.0.0.1:8080/metrics | head
 For the complete local stack:
 
 ```bash
-docker compose --profile observability up --build
+docker compose -f deploy/compose.yaml --profile observability up --build
 ```
 
 - Operations UI: `http://localhost:8080`
